@@ -1,3 +1,0 @@
-crawl4ai
-playwright
-urllib3<2.0.0
