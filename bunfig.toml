@@ -1,0 +1,14 @@
+# Bun configuration file
+[install]
+# Use exact versions for better reproducibility
+exact = true
+
+# Cache directory
+cache = "node_modules/.cache/bun"
+
+# Install peer dependencies automatically
+auto = true
+
+[run]
+# Use bun's faster runtime for scripts
+bun = true
