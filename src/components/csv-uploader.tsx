@@ -15,9 +15,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealtimeCSVValidator } from "@/hooks/useRealtimeCSVValidator";
 import { useProcessingStatus } from "@/hooks/useProcessingStatus";
 import { ProcessingStatus } from "@/lib/types";
+import { useUploadThing } from "@/utils/uploadthing";
+import { useDropzone } from "@uploadthing/react";
 import { Terminal } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import {
+  generateClientDropzoneAccept,
+  generatePermittedFileTypes,
+} from "uploadthing/client";
 
 export default function CSVUploader() {
   const [file, setFile] = useState<File | null>(null);
@@ -60,59 +65,43 @@ export default function CSVUploader() {
     }
   }, []);
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setStatus('uploading');
-      setUploadProgress(0);
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
-      }
-
-      const result = await response.json();
-      
+  const { startUpload, routeConfig } = useUploadThing("csvUploader", {
+    onClientUploadComplete: (res) => {
       setStatus("processing");
-      setUploadProgress(100);
       toast({
         title: "Upload complete",
-        description: `File ${file.name} has been uploaded successfully. Processing started.`,
+        description: `File ${file?.name} has been uploaded successfully. Processing started.`,
       });
 
       // serverData is the "handle" returned from tasks.trigger
-      setRunHandle(result.serverData);
-    } catch (error) {
+      // See this call in the uploadthing router in src/app/api/uploadthing/core.ts
+      setRunHandle(res[0].serverData);
+    },
+    onUploadError: (error) => {
       setStatus("idle");
-      setUploadProgress(0);
       toast({
         title: "Upload failed",
-        description: error instanceof Error ? error.message : 'Upload failed',
+        description: error.message,
         variant: "destructive",
       });
-    }
-  };
+    },
+    onUploadProgress(p) {
+      setUploadProgress(p);
+    },
+  });
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/csv': ['.csv']
-    },
+    accept: generateClientDropzoneAccept(
+      generatePermittedFileTypes(routeConfig).fileTypes
+    ),
     multiple: false,
-    maxSize: 4 * 1024 * 1024, // 4MB limit
   });
 
   const handleUpload = async () => {
     if (!file) return;
 
-    await uploadFile(file);
+    await startUpload([file]);
   };
 
   return (
